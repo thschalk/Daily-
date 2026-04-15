@@ -1,479 +1,1159 @@
-import { useState, useEffect, useRef, useCallback } from “react”;
+<!DOCTYPE html>
 
-const WEEKDAYS = [“Sonntag”,“Montag”,“Dienstag”,“Mittwoch”,“Donnerstag”,“Freitag”,“Samstag”];
-const MONTHS = [“Januar”,“Februar”,“März”,“April”,“Mai”,“Juni”,“Juli”,“August”,“September”,“Oktober”,“November”,“Dezember”];
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Morgenroutine · ADHD Journal</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,500;0,700;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f5f0e8;
+    --paper: #faf7f2;
+    --ink: #1a1510;
+    --ink-light: #6b5e4e;
+    --accent: #c4521a;
+    --accent-soft: #f0e0d4;
+    --green: #2d6a4f;
+    --green-soft: #d8ede4;
+    --blue: #1d3557;
+    --blue-soft: #dce8f5;
+    --gold: #9a7c2e;
+    --gold-soft: #f5edce;
+    --border: #d9cfc0;
+    --shadow: rgba(26,21,16,0.08);
+  }
+
+- { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+font-family: ‘DM Mono’, monospace;
+background: var(–bg);
+color: var(–ink);
+min-height: 100vh;
+padding: 0;
+}
+
+/* HEADER */
+.header {
+background: var(–ink);
+color: var(–bg);
+padding: 20px 32px;
+display: flex;
+align-items: center;
+justify-content: space-between;
+position: sticky;
+top: 0;
+z-index: 100;
+}
+
+.header-title {
+font-family: ‘Fraunces’, serif;
+font-size: 1.4rem;
+font-weight: 300;
+letter-spacing: 0.02em;
+}
+
+.header-title span {
+color: var(–accent);
+font-style: italic;
+}
+
+.header-meta {
+font-size: 0.7rem;
+color: #a09080;
+text-align: right;
+line-height: 1.6;
+}
+
+.timer-badge {
+background: var(–accent);
+color: white;
+font-size: 0.75rem;
+padding: 4px 12px;
+border-radius: 20px;
+cursor: pointer;
+transition: all 0.2s;
+border: none;
+font-family: ‘DM Mono’, monospace;
+letter-spacing: 0.05em;
+}
+
+.timer-badge:hover { background: #a84415; transform: scale(1.03); }
+.timer-badge.running { background: var(–green); animation: pulse 1.5s infinite; }
+
+@keyframes pulse {
+0%, 100% { opacity: 1; }
+50% { opacity: 0.7; }
+}
+
+/* TIMER BAR */
+.timer-bar {
+background: var(–ink);
+padding: 0 32px;
+overflow: hidden;
+max-height: 0;
+transition: max-height 0.4s ease, padding 0.3s;
+}
+
+.timer-bar.visible {
+max-height: 80px;
+padding: 12px 32px;
+}
+
+.progress-track {
+background: #3a3028;
+border-radius: 4px;
+height: 6px;
+width: 100%;
+overflow: hidden;
+margin-bottom: 6px;
+}
+
+.progress-fill {
+height: 100%;
+background: var(–accent);
+border-radius: 4px;
+transition: width 1s linear;
+width: 0%;
+}
+
+.timer-label {
+color: #a09080;
+font-size: 0.65rem;
+letter-spacing: 0.1em;
+text-transform: uppercase;
+display: flex;
+justify-content: space-between;
+}
+
+/* MAIN LAYOUT */
+.container {
+max-width: 780px;
+margin: 0 auto;
+padding: 32px 24px 80px;
+}
+
+/* DATE NAVIGATION */
+.date-nav {
+display: flex;
+align-items: center;
+gap: 12px;
+margin-bottom: 28px;
+}
+
+.date-btn {
+background: none;
+border: 1px solid var(–border);
+color: var(–ink-light);
+width: 32px;
+height: 32px;
+border-radius: 8px;
+cursor: pointer;
+font-size: 1rem;
+display: flex;
+align-items: center;
+justify-content: center;
+transition: all 0.15s;
+}
+
+.date-btn:hover { background: var(–paper); border-color: var(–ink-light); }
+
+.date-display {
+font-family: ‘Fraunces’, serif;
+font-size: 1.6rem;
+font-weight: 500;
+color: var(–ink);
+flex: 1;
+}
+
+.date-display .weekday {
+font-size: 0.75rem;
+font-family: ‘DM Mono’, monospace;
+color: var(–ink-light);
+font-weight: 300;
+text-transform: uppercase;
+letter-spacing: 0.12em;
+display: block;
+margin-bottom: 2px;
+}
+
+.today-badge {
+font-size: 0.65rem;
+background: var(–accent-soft);
+color: var(–accent);
+padding: 3px 10px;
+border-radius: 12px;
+letter-spacing: 0.08em;
+text-transform: uppercase;
+}
+
+/* SECTION CARDS */
+.section {
+background: var(–paper);
+border: 1px solid var(–border);
+border-radius: 12px;
+margin-bottom: 16px;
+overflow: hidden;
+transition: box-shadow 0.2s;
+}
+
+.section:hover { box-shadow: 0 4px 16px var(–shadow); }
+
+.section-header {
+display: flex;
+align-items: center;
+gap: 10px;
+padding: 14px 18px;
+cursor: pointer;
+user-select: none;
+border-bottom: 1px solid var(–border);
+background: var(–paper);
+}
+
+.section-icon {
+width: 28px;
+height: 28px;
+border-radius: 7px;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 0.9rem;
+flex-shrink: 0;
+}
+
+.icon-ideas   { background: var(–accent-soft); }
+.icon-today   { background: var(–green-soft); }
+.icon-open    { background: var(–blue-soft); }
+.icon-topics  { background: var(–gold-soft); }
+.icon-thanks  { background: #fce4ec; }
+
+.section-title {
+font-family: ‘Fraunces’, serif;
+font-size: 0.95rem;
+font-weight: 500;
+flex: 1;
+}
+
+.section-count {
+font-size: 0.65rem;
+color: var(–ink-light);
+background: var(–bg);
+padding: 2px 8px;
+border-radius: 10px;
+border: 1px solid var(–border);
+}
+
+.section-chevron {
+color: var(–ink-light);
+font-size: 0.7rem;
+transition: transform 0.25s;
+}
+
+.section.collapsed .section-chevron { transform: rotate(-90deg); }
+.section.collapsed .section-body { display: none; }
+
+.section-body {
+padding: 14px 18px;
+}
+
+/* TODO ITEMS */
+.todo-list { list-style: none; }
+
+.todo-item {
+display: flex;
+align-items: flex-start;
+gap: 10px;
+padding: 6px 0;
+border-bottom: 1px solid #ece8e0;
+animation: fadeIn 0.2s ease;
+}
+
+.todo-item:last-child { border-bottom: none; }
+
+@keyframes fadeIn {
+from { opacity: 0; transform: translateY(-4px); }
+to   { opacity: 1; transform: translateY(0); }
+}
+
+.todo-check {
+width: 18px;
+height: 18px;
+border: 1.5px solid var(–border);
+border-radius: 4px;
+cursor: pointer;
+flex-shrink: 0;
+margin-top: 2px;
+display: flex;
+align-items: center;
+justify-content: center;
+transition: all 0.15s;
+background: white;
+}
+
+.todo-check:hover { border-color: var(–green); }
+.todo-check.checked { background: var(–green); border-color: var(–green); color: white; font-size: 0.6rem; }
+
+.todo-text {
+flex: 1;
+font-size: 0.82rem;
+line-height: 1.5;
+color: var(–ink);
+outline: none;
+border: none;
+background: transparent;
+font-family: ‘DM Mono’, monospace;
+resize: none;
+width: 100%;
+min-height: 20px;
+}
+
+.todo-text.done {
+text-decoration: line-through;
+color: var(–ink-light);
+opacity: 0.6;
+}
+
+.todo-delete {
+color: var(–border);
+cursor: pointer;
+font-size: 0.8rem;
+border: none;
+background: none;
+padding: 2px 4px;
+border-radius: 4px;
+transition: all 0.15s;
+opacity: 0;
+flex-shrink: 0;
+}
+
+.todo-item:hover .todo-delete { opacity: 1; }
+.todo-delete:hover { color: #c0392b; background: #fde8e8; }
+
+.overflow-tag {
+font-size: 0.6rem;
+background: var(–blue-soft);
+color: var(–blue);
+padding: 1px 7px;
+border-radius: 8px;
+margin-left: 4px;
+flex-shrink: 0;
+margin-top: 3px;
+align-self: flex-start;
+}
+
+/* ADD INPUT */
+.add-row {
+display: flex;
+align-items: center;
+gap: 8px;
+margin-top: 10px;
+padding-top: 10px;
+border-top: 1px dashed var(–border);
+}
+
+.add-input {
+flex: 1;
+font-size: 0.8rem;
+font-family: ‘DM Mono’, monospace;
+border: none;
+background: transparent;
+color: var(–ink);
+outline: none;
+padding: 4px 0;
+}
+
+.add-input::placeholder { color: var(–border); font-style: italic; }
+
+.add-btn {
+background: none;
+border: 1px solid var(–border);
+color: var(–ink-light);
+width: 24px;
+height: 24px;
+border-radius: 6px;
+cursor: pointer;
+font-size: 1rem;
+display: flex;
+align-items: center;
+justify-content: center;
+transition: all 0.15s;
+flex-shrink: 0;
+}
+
+.add-btn:hover { background: var(–accent-soft); border-color: var(–accent); color: var(–accent); }
+
+/* TEXTAREA SECTIONS */
+.journal-textarea {
+width: 100%;
+min-height: 80px;
+font-family: ‘DM Mono’, monospace;
+font-size: 0.82rem;
+line-height: 1.7;
+border: none;
+background: transparent;
+color: var(–ink);
+outline: none;
+resize: vertical;
+}
+
+.journal-textarea::placeholder { color: var(–border); font-style: italic; }
+
+/* GRATITUDE */
+.gratitude-row {
+display: flex;
+align-items: flex-start;
+gap: 10px;
+padding: 6px 0;
+border-bottom: 1px solid #ece8e0;
+}
+
+.gratitude-row:last-child { border-bottom: none; }
+
+.gratitude-num {
+font-size: 0.65rem;
+color: #e8a0a0;
+font-family: ‘Fraunces’, serif;
+font-style: italic;
+min-width: 16px;
+margin-top: 3px;
+}
+
+.gratitude-input {
+flex: 1;
+font-size: 0.82rem;
+font-family: ‘DM Mono’, monospace;
+border: none;
+background: transparent;
+color: var(–ink);
+outline: none;
+padding: 2px 0;
+}
+
+.gratitude-input::placeholder { color: var(–border); font-style: italic; }
+
+/* SAVE BAR */
+.save-bar {
+position: fixed;
+bottom: 0;
+left: 0;
+right: 0;
+background: var(–paper);
+border-top: 1px solid var(–border);
+padding: 12px 24px;
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 12px;
+}
+
+.save-hint {
+font-size: 0.68rem;
+color: var(–ink-light);
+}
+
+.save-btn {
+background: var(–ink);
+color: var(–bg);
+border: none;
+padding: 8px 20px;
+border-radius: 8px;
+font-family: ‘DM Mono’, monospace;
+font-size: 0.75rem;
+cursor: pointer;
+letter-spacing: 0.05em;
+transition: all 0.2s;
+}
+
+.save-btn:hover { background: var(–accent); transform: scale(1.02); }
+
+.save-btn.saved {
+background: var(–green);
+}
+
+/* NOTION EXPORT */
+.export-btn {
+background: none;
+border: 1px solid var(–border);
+color: var(–ink-light);
+padding: 7px 14px;
+border-radius: 8px;
+font-family: ‘DM Mono’, monospace;
+font-size: 0.72rem;
+cursor: pointer;
+transition: all 0.2s;
+}
+
+.export-btn:hover { border-color: var(–ink-light); color: var(–ink); }
+
+/* OPEN TODOS EMPTY STATE */
+.empty-state {
+font-size: 0.75rem;
+color: var(–ink-light);
+font-style: italic;
+padding: 8px 0;
+text-align: center;
+opacity: 0.7;
+}
+
+/* NOTIFICATION HINT */
+.notification-hint {
+background: var(–gold-soft);
+border: 1px solid #e0d0a0;
+border-radius: 10px;
+padding: 12px 16px;
+margin-bottom: 20px;
+display: flex;
+align-items: flex-start;
+gap: 10px;
+}
+
+.notification-hint .nh-icon { font-size: 1rem; margin-top: 1px; }
+
+.notification-hint p {
+font-size: 0.72rem;
+color: var(–gold);
+line-height: 1.6;
+}
+
+.notification-hint strong { color: var(–ink); }
+
+/* MODAL */
+.modal-overlay {
+position: fixed;
+inset: 0;
+background: rgba(26,21,16,0.6);
+z-index: 200;
+display: flex;
+align-items: center;
+justify-content: center;
+opacity: 0;
+pointer-events: none;
+transition: opacity 0.25s;
+}
+
+.modal-overlay.visible {
+opacity: 1;
+pointer-events: all;
+}
+
+.modal {
+background: var(–paper);
+border-radius: 16px;
+padding: 28px;
+max-width: 420px;
+width: 90%;
+transform: translateY(10px);
+transition: transform 0.25s;
+}
+
+.modal-overlay.visible .modal { transform: translateY(0); }
+
+.modal h2 {
+font-family: ‘Fraunces’, serif;
+font-size: 1.2rem;
+font-weight: 500;
+margin-bottom: 16px;
+}
+
+.modal p {
+font-size: 0.78rem;
+color: var(–ink-light);
+line-height: 1.7;
+margin-bottom: 20px;
+}
+
+.modal-steps {
+list-style: none;
+margin-bottom: 20px;
+}
+
+.modal-steps li {
+font-size: 0.75rem;
+padding: 6px 0;
+border-bottom: 1px solid var(–border);
+display: flex;
+gap: 10px;
+align-items: flex-start;
+}
+
+.modal-steps li .step-num {
+font-family: ‘Fraunces’, serif;
+font-style: italic;
+color: var(–accent);
+min-width: 18px;
+}
+
+.modal-close {
+width: 100%;
+background: var(–ink);
+color: var(–bg);
+border: none;
+padding: 10px;
+border-radius: 10px;
+font-family: ‘DM Mono’, monospace;
+font-size: 0.8rem;
+cursor: pointer;
+letter-spacing: 0.05em;
+transition: background 0.2s;
+}
+
+.modal-close:hover { background: var(–accent); }
+
+/* CLAUDE SECTION */
+.claude-panel {
+background: var(–ink);
+border-radius: 12px;
+padding: 16px 18px;
+margin-top: 20px;
+margin-bottom: 20px;
+}
+
+.claude-panel h3 {
+font-family: ‘Fraunces’, serif;
+font-size: 0.9rem;
+font-weight: 300;
+color: var(–bg);
+margin-bottom: 4px;
+font-style: italic;
+}
+
+.claude-panel p {
+font-size: 0.7rem;
+color: #a09080;
+margin-bottom: 12px;
+line-height: 1.5;
+}
+
+.claude-link {
+display: inline-block;
+background: var(–accent);
+color: white;
+font-size: 0.72rem;
+padding: 6px 14px;
+border-radius: 8px;
+text-decoration: none;
+font-family: ‘DM Mono’, monospace;
+letter-spacing: 0.05em;
+transition: background 0.2s;
+}
+
+.claude-link:hover { background: #a84415; }
+
+/* RESPONSIVE */
+@media (max-width: 500px) {
+.header { padding: 14px 16px; }
+.container { padding: 20px 14px 80px; }
+.date-display { font-size: 1.3rem; }
+}
+</style>
+
+</head>
+<body>
+
+<div class="header">
+  <div class="header-title">Morgen<span>routine</span></div>
+  <button class="timer-badge" id="timerBtn" onclick="toggleTimer()">⏱ 10 Min starten</button>
+  <div class="header-meta">
+    <div id="clockDisplay">—</div>
+    <div style="font-size:0.6rem;opacity:0.5;">täglich 9:00</div>
+  </div>
+</div>
+
+<div class="timer-bar" id="timerBar">
+  <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="timer-label">
+    <span>Fokuszeit</span>
+    <span id="timerRemaining">10:00</span>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- DATE NAV -->
+
+  <div class="date-nav">
+    <button class="date-btn" onclick="changeDay(-1)">‹</button>
+    <div class="date-display">
+      <span class="weekday" id="weekdayDisplay">—</span>
+      <span id="dateDisplay">—</span>
+    </div>
+    <span class="today-badge" id="todayBadge" style="display:none">Heute</span>
+    <button class="date-btn" onclick="changeDay(1)">›</button>
+  </div>
+
+  <!-- NOTIFICATION HINT (shown once) -->
+
+  <div class="notification-hint" id="notifHint">
+    <span class="nh-icon">🔔</span>
+    <p><strong>Tipp für tägliche Erinnerung:</strong> Auf iPhone/iPad kannst du unter <em>Uhr → Wecker</em> täglich 9:00 Uhr einstellen — oder einen Kalender-Termin "Morgenroutine" mit Wiederholung anlegen. <span style="cursor:pointer;text-decoration:underline;color:var(--gold)" onclick="showModal()">Schritt-für-Schritt</span></p>
+  </div>
+
+  <!-- 1. IDEEN -->
+
+  <div class="section" id="sec-ideas">
+    <div class="section-header" onclick="toggleSection('ideas')">
+      <div class="section-icon icon-ideas">💡</div>
+      <span class="section-title">Ideen & Gedanken</span>
+      <span class="section-count" id="count-ideas">0</span>
+      <span class="section-chevron">▾</span>
+    </div>
+    <div class="section-body">
+      <ul class="todo-list" id="list-ideas"></ul>
+      <div class="add-row">
+        <input class="add-input" id="input-ideas" placeholder="Idee hinzufügen…" onkeydown="handleAddKey(event,'ideas')">
+        <button class="add-btn" onclick="addItem('ideas')">+</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. TO-DOs HEUTE -->
+
+  <div class="section" id="sec-today">
+    <div class="section-header" onclick="toggleSection('today')">
+      <div class="section-icon icon-today">✅</div>
+      <span class="section-title">To-dos für heute</span>
+      <span class="section-count" id="count-today">0</span>
+      <span class="section-chevron">▾</span>
+    </div>
+    <div class="section-body">
+      <ul class="todo-list" id="list-today"></ul>
+      <div class="add-row">
+        <input class="add-input" id="input-today" placeholder="Aufgabe hinzufügen…" onkeydown="handleAddKey(event,'today')">
+        <button class="add-btn" onclick="addItem('today')">+</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. OFFENE TO-DOs -->
+
+  <div class="section" id="sec-open">
+    <div class="section-header" onclick="toggleSection('open')">
+      <div class="section-icon icon-open">🔄</div>
+      <span class="section-title">Offene To-dos</span>
+      <span class="section-count" id="count-open">0</span>
+      <span class="section-chevron">▾</span>
+    </div>
+    <div class="section-body">
+      <div id="open-list-container">
+        <div class="empty-state" id="open-empty">Keine offenen To-dos von gestern ✓</div>
+        <ul class="todo-list" id="list-open"></ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. WICHTIGE THEMEN -->
+
+  <div class="section" id="sec-topics">
+    <div class="section-header" onclick="toggleSection('topics')">
+      <div class="section-icon icon-topics">🎯</div>
+      <span class="section-title">Wichtige Themen</span>
+      <span class="section-count" id="count-topics">0</span>
+      <span class="section-chevron">▾</span>
+    </div>
+    <div class="section-body">
+      <ul class="todo-list" id="list-topics"></ul>
+      <div class="add-row">
+        <input class="add-input" id="input-topics" placeholder="Thema hinzufügen…" onkeydown="handleAddKey(event,'topics')">
+        <button class="add-btn" onclick="addItem('topics')">+</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. DANKBARKEIT -->
+
+  <div class="section" id="sec-thanks">
+    <div class="section-header" onclick="toggleSection('thanks')">
+      <div class="section-icon icon-thanks">🙏</div>
+      <span class="section-title">Dankbarkeit</span>
+      <span class="section-chevron">▾</span>
+    </div>
+    <div class="section-body">
+      <div class="gratitude-row">
+        <span class="gratitude-num">1.</span>
+        <input class="gratitude-input" id="grat1" placeholder="Ich bin dankbar für…">
+      </div>
+      <div class="gratitude-row">
+        <span class="gratitude-num">2.</span>
+        <input class="gratitude-input" id="grat2" placeholder="Heute freue ich mich auf…">
+      </div>
+      <div class="gratitude-row">
+        <span class="gratitude-num">3.</span>
+        <input class="gratitude-input" id="grat3" placeholder="Etwas das gut war…">
+      </div>
+    </div>
+  </div>
+
+  <!-- CLAUDE PANEL -->
+
+  <div class="claude-panel">
+    <h3>✦ Mit Claude AI besprechen</h3>
+    <p>Kopiere deine Ideen & To-dos in Claude — lass sie priorisieren, strukturieren oder ausformulieren.</p>
+    <a class="claude-link" href="https://claude.ai" target="_blank">Claude öffnen →</a>
+  </div>
+
+</div>
+
+<!-- SAVE BAR -->
+
+<div class="save-bar">
+  <span class="save-hint" id="saveHint">Nicht gespeichert</span>
+  <button class="export-btn" onclick="exportText()">📋 Kopieren</button>
+  <button class="save-btn" id="saveBtn" onclick="saveData()">Speichern</button>
+</div>
+
+<!-- MODAL: Erinnerung einrichten -->
+
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal">
+    <h2>🔔 Tägliche 9-Uhr-Erinnerung</h2>
+    <p>So richtest du eine tägliche Erinnerung auf dem iPad ein:</p>
+    <ul class="modal-steps">
+      <li><span class="step-num">1.</span><span>Kalender-App öffnen → Neues Ereignis erstellen</span></li>
+      <li><span class="step-num">2.</span><span>Titel: <strong>"Morgenroutine ☕"</strong></span></li>
+      <li><span class="step-num">3.</span><span>Uhrzeit: <strong>09:00 – 09:15 Uhr</strong></span></li>
+      <li><span class="step-num">4.</span><span>Wiederholung: <strong>Täglich</strong></span></li>
+      <li><span class="step-num">5.</span><span>Erinnerung: <strong>5 Minuten vorher</strong></span></li>
+      <li><span class="step-num">6.</span><span>Speichern → Fertig ✓</span></li>
+    </ul>
+    <button class="modal-close" onclick="closeModal()">Verstanden</button>
+  </div>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────
+let currentDateKey = getTodayKey();
+let allData = {};
+let timerInterval = null;
+let timerSeconds = 600;
+let timerRunning = false;
+
+const WEEKDAYS = ['Sonntag','Montag','Dienstag','Mittwoch','Donnerstag','Freitag','Samstag'];
+const MONTHS   = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 
 function getTodayKey() {
-const d = new Date();
-return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
+
 function dateFromKey(key) {
-const [y,m,d] = key.split(”-”).map(Number);
-return new Date(y,m-1,d);
+  const [y,m,d] = key.split('-').map(Number);
+  return new Date(y, m-1, d);
 }
+
 function keyFromDate(d) {
-return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-}
-function defaultDay() {
-return {
-ideas:[], today:[], topics:[], grat1:””, grat2:””, grat3:””,
-evening_done:””, evening_learn:””, evening_tomorrow:””, evening_energy:0, evening_note:””
-};
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-// ── STORAGE ──────────────────────────────────────────────────
-function loadData() {
-try { const r = localStorage.getItem(“adhd_daily_v1”); return r ? JSON.parse(r) : {}; }
-catch(e) { return {}; }
-}
-function saveData(data) {
-try { localStorage.setItem(“adhd_daily_v1”, JSON.stringify(data)); } catch(e) {}
+// ─── DATA LOAD / SAVE ────────────────────────────────────────
+function getDefaultData() {
+  return {
+    ideas:  [],
+    today:  [],
+    topics: [],
+    grat1: '', grat2: '', grat3: ''
+  };
 }
 
-// ── HELPERS ──────────────────────────────────────────────────
-function getWeekDays(key) {
-const d = dateFromKey(key);
-const day = d.getDay();
-const monday = new Date(d);
-monday.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-return Array.from({length:7}, (_,i) => {
-const dd = new Date(monday);
-dd.setDate(monday.getDate() + i);
-return keyFromDate(dd);
+function loadAll() {
+  try {
+    const raw = localStorage.getItem('adhd_journal_v2');
+    allData = raw ? JSON.parse(raw) : {};
+  } catch(e) { allData = {}; }
+}
+
+function saveAll() {
+  localStorage.setItem('adhd_journal_v2', JSON.stringify(allData));
+  const btn = document.getElementById('saveBtn');
+  btn.textContent = 'Gespeichert ✓';
+  btn.classList.add('saved');
+  document.getElementById('saveHint').textContent = 'Gespeichert · ' + new Date().toLocaleTimeString('de-DE', {hour:'2-digit',minute:'2-digit'});
+  setTimeout(() => { btn.textContent = 'Speichern'; btn.classList.remove('saved'); }, 2000);
+}
+
+function getDay(key) {
+  if (!allData[key]) allData[key] = getDefaultData();
+  return allData[key];
+}
+
+// ─── RENDER ──────────────────────────────────────────────────
+function renderAll() {
+  updateDateDisplay();
+  const day = getDay(currentDateKey);
+
+  renderList('ideas',  day.ideas);
+  renderList('today',  day.today);
+  renderList('topics', day.topics);
+  renderOpenTodos();
+
+  document.getElementById('grat1').value = day.grat1 || '';
+  document.getElementById('grat2').value = day.grat2 || '';
+  document.getElementById('grat3').value = day.grat3 || '';
+
+  updateCount('ideas',  day.ideas.length);
+  updateCount('today',  day.today.length);
+  updateCount('topics', day.topics.length);
+}
+
+function renderList(type, items) {
+  const ul = document.getElementById('list-' + type);
+  ul.innerHTML = '';
+  items.forEach((item, idx) => {
+    const li = document.createElement('li');
+    li.className = 'todo-item';
+    li.innerHTML = `
+      <div class="todo-check ${item.done ? 'checked' : ''}" onclick="toggleDone('${type}',${idx})">${item.done ? '✓' : ''}</div>
+      <textarea class="todo-text ${item.done ? 'done' : ''}" rows="1"
+        oninput="editItem('${type}',${idx},this.value);autoResize(this)"
+        onblur="saveAll()">${escHtml(item.text)}</textarea>
+
+```
+  <button class="todo-delete" onclick="deleteItem('${type}',${idx})">✕</button>
+`;
+ul.appendChild(li);
+```
+
 });
 }
 
-// ── COMPONENTS ───────────────────────────────────────────────
-function Checkbox({ done, onToggle, color=”#2a5c45” }) {
-return (
-<div onClick={onToggle} style={{
-width:18, height:18, borderRadius:4, border:`1.5px solid ${done?color:"#d9cfc0"}`,
-background:done?color:“white”, flexShrink:0, cursor:“pointer”,
-display:“flex”, alignItems:“center”, justifyContent:“center”,
-color:“white”, fontSize:“0.6rem”, marginTop:2, transition:“all 0.15s”
-}}>{done?“✓”:””}</div>
-);
-}
+function renderOpenTodos() {
+const ul = document.getElementById(‘list-open’);
+ul.innerHTML = ‘’;
 
-function TodoRow({ item, onToggle, onEdit, onDelete, tag }) {
-return (
-<div style={{display:“flex”, alignItems:“flex-start”, gap:9, padding:“6px 0”, borderBottom:“1px solid #f0ebe0”}}>
-<Checkbox done={item.done} onToggle={onToggle} />
-<input value={item.text} onChange={e=>onEdit(e.target.value)} style={{
-flex:1, border:“none”, background:“transparent”, fontSize:“0.82rem”,
-fontFamily:“inherit”, outline:“none”, padding:“1px 0”,
-color:item.done?”#b0a090”:”#1c1812”, textDecoration:item.done?“line-through”:“none”
-}}/>
-{tag && <span style={{fontSize:“0.58rem”,background:”#e4ecf7”,color:”#1e3a5f”,padding:“2px 7px”,borderRadius:8,flexShrink:0,marginTop:3}}>{tag}</span>}
-{onDelete && <button onClick={onDelete} style={{border:“none”,background:“none”,color:”#d9cfc0”,cursor:“pointer”,fontSize:“0.75rem”,padding:“2px 4px”,flexShrink:0}}>✕</button>}
-</div>
-);
-}
+// Collect undone todos from last 7 days (excluding today)
+const today = currentDateKey;
+let openItems = [];
 
-function AddRow({ onAdd, placeholder }) {
-const [val, setVal] = useState(””);
-return (
-<div style={{display:“flex”,gap:8,marginTop:10,paddingTop:10,borderTop:“1px dashed #e2dbd0”}}>
-<input value={val} onChange={e=>setVal(e.target.value)}
-onKeyDown={e=>{if(e.key===“Enter”&&val.trim()){onAdd(val.trim());setVal(””);}}}
-placeholder={placeholder}
-style={{flex:1,border:“none”,background:“transparent”,fontSize:“0.79rem”,fontFamily:“inherit”,outline:“none”,padding:“3px 0”,color:”#1c1812”}}
-/>
-<button onClick={()=>{if(val.trim()){onAdd(val.trim());setVal(””);}}} style={{
-width:26,height:26,borderRadius:7,border:“1px solid #e2dbd0”,background:“white”,
-color:”#6b5e4a”,cursor:“pointer”,fontSize:“1rem”,display:“flex”,alignItems:“center”,justifyContent:“center”
-}}>+</button>
-</div>
-);
+for (let i = 1; i <= 7; i++) {
+const d = new Date(dateFromKey(today));
+d.setDate(d.getDate() - i);
+const key = keyFromDate(d);
+if (allData[key] && allData[key].today) {
+allData[key].today.forEach(item => {
+if (!item.done) {
+openItems.push({ …item, fromDate: key, fromDay: i });
 }
-
-function Card({ icon, title, bg, children, count, defaultOpen=true }) {
-const [open, setOpen] = useState(defaultOpen);
-return (
-<div style={{background:”#fffef9”,border:“1px solid #e2dbd0”,borderRadius:14,marginBottom:12,overflow:“hidden”,boxShadow:“0 2px 8px rgba(26,21,16,0.04)”}}>
-<div onClick={()=>setOpen(!open)} style={{display:“flex”,alignItems:“center”,gap:10,padding:“13px 16px”,borderBottom:open?“1px solid #f0ebe0”:“none”,cursor:“pointer”,userSelect:“none”}}>
-<div style={{width:28,height:28,borderRadius:7,background:bg,display:“flex”,alignItems:“center”,justifyContent:“center”,fontSize:“0.85rem”,flexShrink:0}}>{icon}</div>
-<span style={{fontFamily:“Georgia,serif”,fontSize:“0.95rem”,flex:1,color:”#1c1812”}}>{title}</span>
-{count!==undefined && <span style={{fontSize:“0.62rem”,color:”#6b5e4a”,background:”#f5f0e8”,padding:“2px 8px”,borderRadius:10,border:“1px solid #e2dbd0”}}>{count}</span>}
-<span style={{color:”#c8bfb0”,fontSize:“0.65rem”,transform:open?””:“rotate(-90deg)”,display:“inline-block”,transition:“transform 0.2s”}}>▾</span>
-</div>
-{open && <div style={{padding:“13px 16px”}}>{children}</div>}
-</div>
-);
-}
-
-function EnergyPicker({ value, onChange }) {
-const levels = [“😴”,“😐”,“🙂”,“😊”,“🚀”];
-return (
-<div style={{display:“flex”,gap:8,marginTop:4}}>
-{levels.map((e,i)=>(
-<button key={i} onClick={()=>onChange(i+1)} style={{
-width:36,height:36,borderRadius:10,border:`2px solid ${value===i+1?"#c4521a":"#e2dbd0"}`,
-background:value===i+1?”#fceee6”:“white”,fontSize:“1.1rem”,cursor:“pointer”,
-transition:“all 0.15s”
-}}>{e}</button>
-))}
-</div>
-);
-}
-
-// ── MORNING VIEW ─────────────────────────────────────────────
-function MorningView({ day, updateDay, allData, currentKey }) {
-const openTodos = [];
-for (let i=1;i<=7;i++) {
-const d = new Date(dateFromKey(currentKey));
-d.setDate(d.getDate()-i);
-const k = keyFromDate(d);
-if (allData[k]?.today) {
-allData[k].today.forEach(item=>{
-if(!item.done) openTodos.push({…item,fromKey:k,daysAgo:i});
 });
 }
 }
 
-const add = (type,text) => updateDay(d=>({…d,[type]:[…d[type],{text,done:false,id:Date.now()}]}));
-const toggle = (type,idx) => updateDay(d=>{const a=[…d[type]];a[idx]={…a[idx],done:!a[idx].done};return{…d,[type]:a};});
-const edit = (type,idx,text) => updateDay(d=>{const a=[…d[type]];a[idx]={…a[idx],text};return{…d,[type]:a};});
-const del = (type,idx) => updateDay(d=>{const a=[…d[type]];a.splice(idx,1);return{…d,[type]:a};});
+const empty = document.getElementById(‘open-empty’);
+updateCount(‘open’, openItems.length);
 
-return (
-<div>
-<Card icon="💡" title="Ideen & Gedanken" bg="#fceee6" count={day.ideas.length}>
-{day.ideas.map((item,i)=><TodoRow key={i} item={item} onToggle={()=>toggle(“ideas”,i)} onEdit={v=>edit(“ideas”,i,v)} onDelete={()=>del(“ideas”,i)}/>)}
-<AddRow onAdd={v=>add(“ideas”,v)} placeholder=“Idee raus…”/>
-</Card>
-
-```
-  <Card icon="✅" title="To-dos für heute" bg="#e4f0eb" count={`${day.today.filter(i=>i.done).length}/${day.today.length}`}>
-    {day.today.map((item,i)=><TodoRow key={i} item={item} onToggle={()=>toggle("today",i)} onEdit={v=>edit("today",i,v)} onDelete={()=>del("today",i)}/>)}
-    <AddRow onAdd={v=>add("today",v)} placeholder="Aufgabe hinzufügen…"/>
-  </Card>
-
-  <Card icon="🔄" title="Offene To-dos" bg="#e4ecf7" count={openTodos.length}>
-    {openTodos.length===0
-      ? <div style={{fontSize:"0.75rem",color:"#a09080",fontStyle:"italic",textAlign:"center",padding:"6px 0"}}>Alles erledigt ✓</div>
-      : openTodos.map((item,i)=><TodoRow key={i} item={item}
-          onToggle={()=>{}} onEdit={()=>{}}
-          tag={item.daysAgo===1?"gestern":`vor ${item.daysAgo}d`}
-        />)
-    }
-  </Card>
-
-  <Card icon="🎯" title="Wichtige Themen" bg="#f5edcf" count={day.topics.length}>
-    {day.topics.map((item,i)=><TodoRow key={i} item={item} onToggle={()=>toggle("topics",i)} onEdit={v=>edit("topics",i,v)} onDelete={()=>del("topics",i)}/>)}
-    <AddRow onAdd={v=>add("topics",v)} placeholder="Thema…"/>
-  </Card>
-
-  <Card icon="🙏" title="Dankbarkeit" bg="#fce4ec">
-    {[["grat1","Ich bin dankbar für…"],["grat2","Heute freue ich mich auf…"],["grat3","Etwas das gut läuft…"]].map(([f,ph],i)=>(
-      <div key={f} style={{display:"flex",gap:10,padding:"6px 0",borderBottom:i<2?"1px solid #f0ebe0":"none"}}>
-        <span style={{fontFamily:"Georgia,serif",fontStyle:"italic",color:"#e8a0a0",minWidth:16,marginTop:2,fontSize:"0.8rem"}}>{i+1}.</span>
-        <input value={day[f]||""} onChange={e=>updateDay(d=>({...d,[f]:e.target.value}))} placeholder={ph}
-          style={{flex:1,border:"none",background:"transparent",fontSize:"0.82rem",fontFamily:"inherit",outline:"none",padding:"1px 0",color:"#1c1812"}}/>
-      </div>
-    ))}
-  </Card>
-</div>
-```
-
-);
+if (openItems.length === 0) {
+empty.style.display = ‘block’;
+return;
 }
 
-// ── EVENING VIEW ─────────────────────────────────────────────
-function EveningView({ day, updateDay }) {
-const done = day.today?.filter(i=>i.done).length || 0;
-const total = day.today?.length || 0;
-const pct = total > 0 ? Math.round((done/total)*100) : 0;
+empty.style.display = ‘none’;
 
-return (
-<div>
-{/* Progress */}
-<div style={{background:”#fffef9”,border:“1px solid #e2dbd0”,borderRadius:14,padding:“16px”,marginBottom:12}}>
-<div style={{display:“flex”,justifyContent:“space-between”,alignItems:“center”,marginBottom:8}}>
-<span style={{fontFamily:“Georgia,serif”,fontSize:“0.95rem”,color:”#1c1812”}}>Tagesfortschritt</span>
-<span style={{fontSize:“0.8rem”,color:”#2a5c45”,fontWeight:“bold”}}>{done}/{total} ✓</span>
-</div>
-<div style={{background:”#f0ebe0”,borderRadius:6,height:8,overflow:“hidden”}}>
-<div style={{height:“100%”,background:pct===100?”#2a5c45”:”#c4521a”,width:`${pct}%`,borderRadius:6,transition:“width 0.5s ease”}}/>
-</div>
-<div style={{fontSize:“0.68rem”,color:”#a09080”,marginTop:6,textAlign:“right”}}>{pct}% erledigt</div>
-</div>
-
-```
-  <Card icon="✨" title="Was hat heute gut geklappt?" bg="#e4f0eb">
-    <textarea value={day.evening_done||""} onChange={e=>updateDay(d=>({...d,evening_done:e.target.value}))}
-      placeholder="Was war ein Erfolg heute, egal wie klein…"
-      style={{width:"100%",minHeight:80,border:"none",background:"transparent",fontSize:"0.82rem",fontFamily:"inherit",outline:"none",resize:"vertical",lineHeight:1.7,color:"#1c1812"}}/>
-  </Card>
-
-  <Card icon="💡" title="Was habe ich heute gelernt?" bg="#fceee6">
-    <textarea value={day.evening_learn||""} onChange={e=>updateDay(d=>({...d,evening_learn:e.target.value}))}
-      placeholder="Eine Erkenntnis, eine Lektion, etwas Neues…"
-      style={{width:"100%",minHeight:80,border:"none",background:"transparent",fontSize:"0.82rem",fontFamily:"inherit",outline:"none",resize:"vertical",lineHeight:1.7,color:"#1c1812"}}/>
-  </Card>
-
-  <Card icon="📋" title="Wichtigstes für morgen" bg="#f5edcf">
-    <textarea value={day.evening_tomorrow||""} onChange={e=>updateDay(d=>({...d,evening_tomorrow:e.target.value}))}
-      placeholder="Die eine Sache die morgen wirklich wichtig ist…"
-      style={{width:"100%",minHeight:60,border:"none",background:"transparent",fontSize:"0.82rem",fontFamily:"inherit",outline:"none",resize:"vertical",lineHeight:1.7,color:"#1c1812"}}/>
-  </Card>
-
-  <Card icon="⚡" title="Energie heute" bg="#fce4ec">
-    <div style={{fontSize:"0.78rem",color:"#6b5e4a",marginBottom:6}}>Wie war deine Energie heute?</div>
-    <EnergyPicker value={day.evening_energy||0} onChange={v=>updateDay(d=>({...d,evening_energy:v}))}/>
-  </Card>
-
-  <Card icon="📝" title="Freie Notiz" bg="#e4ecf7" defaultOpen={false}>
-    <textarea value={day.evening_note||""} onChange={e=>updateDay(d=>({...d,evening_note:e.target.value}))}
-      placeholder="Alles was noch raus muss…"
-      style={{width:"100%",minHeight:100,border:"none",background:"transparent",fontSize:"0.82rem",fontFamily:"inherit",outline:"none",resize:"vertical",lineHeight:1.7,color:"#1c1812"}}/>
-  </Card>
-</div>
-```
-
-);
-}
-
-// ── WEEKLY VIEW ──────────────────────────────────────────────
-function WeeklyView({ allData, currentKey, mode }) {
-const weekKeys = getWeekDays(currentKey);
-const weekLabel = () => {
-const start = dateFromKey(weekKeys[0]);
-const end = dateFromKey(weekKeys[6]);
-return `${start.getDate()}. ${MONTHS[start.getMonth()]} – ${end.getDate()}. ${MONTHS[end.getMonth()]} ${end.getFullYear()}`;
-};
-
-const allTodos = weekKeys.flatMap(k => (allData[k]?.today||[]).map(t=>({…t,dayKey:k})));
-const done = allTodos.filter(t=>t.done);
-const open = allTodos.filter(t=>!t.done);
-const allIdeas = weekKeys.flatMap(k=>(allData[k]?.ideas||[]).map(i=>({…i,dayKey:k})));
-const energyDays = weekKeys.filter(k=>allData[k]?.evening_energy>0);
-const avgEnergy = energyDays.length>0 ? (energyDays.reduce((s,k)=>s+(allData[k].evening_energy||0),0)/energyDays.length).toFixed(1) : “–”;
-const energyEmoji = [””,“😴”,“😐”,“🙂”,“😊”,“🚀”];
-
-return (
-<div>
-<div style={{background:”#1c1812”,borderRadius:14,padding:“16px 18px”,marginBottom:14,color:“white”}}>
-<div style={{fontSize:“0.62rem”,letterSpacing:“0.15em”,textTransform:“uppercase”,color:”#a09080”,marginBottom:4}}>
-{mode===“start”?“Wochenstart”:“Wochenabschluss”}
-</div>
-<div style={{fontFamily:“Georgia,serif”,fontSize:“1.1rem”,marginBottom:12}}>{weekLabel()}</div>
-<div style={{display:“grid”,gridTemplateColumns:“repeat(3,1fr)”,gap:8}}>
-{[
-[“✅”,“Erledigt”,done.length],
-[“🔄”,“Offen”,open.length],
-[“💡”,“Ideen”,allIdeas.length],
-].map(([icon,label,val])=>(
-<div key={label} style={{background:”#2a2420”,borderRadius:10,padding:“10px 12px”,textAlign:“center”}}>
-<div style={{fontSize:“1.2rem”,marginBottom:2}}>{icon}</div>
-<div style={{fontSize:“1.3rem”,fontFamily:“Georgia,serif”,color:“white”}}>{val}</div>
-<div style={{fontSize:“0.62rem”,color:”#a09080”}}>{label}</div>
-</div>
-))}
-</div>
-</div>
-
-```
-  {/* Energie */}
-  <Card icon="⚡" title="Energie diese Woche" bg="#fce4ec">
-    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
-      <span style={{fontSize:"1.5rem"}}>{energyEmoji[Math.round(parseFloat(avgEnergy))]||"–"}</span>
-      <div>
-        <div style={{fontSize:"0.85rem",color:"#1c1812"}}>Ø {avgEnergy} / 5</div>
-        <div style={{fontSize:"0.68rem",color:"#a09080"}}>Durchschnitt aus {energyDays.length} Tagen</div>
-      </div>
-    </div>
-    <div style={{display:"flex",gap:4,alignItems:"flex-end",height:40}}>
-      {weekKeys.map((k,i)=>{
-        const e = allData[k]?.evening_energy||0;
-        return <div key={k} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3}}>
-          <div style={{width:"100%",background:e>0?"#c4521a":"#f0ebe0",borderRadius:"4px 4px 0 0",height:e>0?`${(e/5)*36}px`:"4px",transition:"height 0.3s"}}/>
-          <span style={{fontSize:"0.6rem",color:"#a09080"}}>{WEEKDAYS[i].slice(0,2)}</span>
-        </div>;
-      })}
-    </div>
-  </Card>
-
-  {/* Offene Tasks */}
-  {open.length > 0 && (
-    <Card icon="🔄" title={`${open.length} offene Tasks`} bg="#e4ecf7">
-      {open.map((item,i)=>(
-        <div key={i} style={{display:"flex",alignItems:"flex-start",gap:9,padding:"6px 0",borderBottom:"1px solid #f0ebe0"}}>
-          <div style={{width:8,height:8,borderRadius:"50%",background:"#1e3a5f",flexShrink:0,marginTop:6}}/>
-          <span style={{flex:1,fontSize:"0.82rem",color:"#1c1812"}}>{item.text}</span>
-          <span style={{fontSize:"0.6rem",background:"#e4ecf7",color:"#1e3a5f",padding:"2px 7px",borderRadius:8,flexShrink:0,marginTop:2}}>
-            {WEEKDAYS[dateFromKey(item.dayKey).getDay()].slice(0,2)}
-          </span>
-        </div>
-      ))}
-    </Card>
-  )}
-
-  {/* Beste Ideen */}
-  {allIdeas.length > 0 && (
-    <Card icon="💡" title="Ideen der Woche" bg="#fceee6">
-      {allIdeas.map((item,i)=>(
-        <div key={i} style={{display:"flex",gap:9,padding:"6px 0",borderBottom:"1px solid #f0ebe0",alignItems:"flex-start"}}>
-          <span style={{color:"#c4521a",fontSize:"0.8rem",marginTop:1}}>→</span>
-          <span style={{flex:1,fontSize:"0.82rem",color:"#1c1812"}}>{item.text}</span>
-        </div>
-      ))}
-    </Card>
-  )}
-
-  {/* Tagesnotizen */}
-  <Card icon="✨" title="Highlights der Woche" bg="#e4f0eb" defaultOpen={false}>
-    {weekKeys.map(k=>{
-      const d = allData[k];
-      if (!d?.evening_done) return null;
-      return (
-        <div key={k} style={{padding:"8px 0",borderBottom:"1px solid #f0ebe0"}}>
-          <div style={{fontSize:"0.65rem",color:"#a09080",marginBottom:3,letterSpacing:"0.08em",textTransform:"uppercase"}}>
-            {WEEKDAYS[dateFromKey(k).getDay()]}
-          </div>
-          <div style={{fontSize:"0.82rem",color:"#1c1812",lineHeight:1.6}}>{d.evening_done}</div>
-        </div>
-      );
-    }).filter(Boolean)}
-  </Card>
-</div>
-```
-
-);
-}
-
-// ── MAIN APP ─────────────────────────────────────────────────
-export default function App() {
-const [view, setView] = useState(“morning”);
-const [currentKey, setCurrentKey] = useState(getTodayKey());
-const [allData, setAllData] = useState({});
-const [timerSec, setTimerSec] = useState(600);
-const [timerRunning, setTimerRunning] = useState(false);
-const timerRef = useRef(null);
-
-useEffect(() => { setAllData(loadData()); }, []);
-
-const updateDay = useCallback((updater) => {
-setAllData(prev => {
-const day = { …defaultDay(), …prev[currentKey] };
-const updated = { …prev, [currentKey]: updater(day) };
-saveData(updated);
-return updated;
+openItems.forEach((item) => {
+const li = document.createElement(‘li’);
+li.className = ‘todo-item’;
+const daysAgo = item.fromDay === 1 ? ‘gestern’ : `vor ${item.fromDay} Tagen`;
+li.innerHTML = `<div class="todo-check" onclick="markOpenDone('${item.fromDate}','${escAttr(item.text)}',this)"></div> <span class="todo-text">${escHtml(item.text)}</span> <span class="overflow-tag">${daysAgo}</span>`;
+ul.appendChild(li);
 });
-}, [currentKey]);
+}
 
-useEffect(() => {
+function updateCount(type, n) {
+const el = document.getElementById(‘count-’ + type);
+if (el) el.textContent = n;
+}
+
+function updateDateDisplay() {
+const d = dateFromKey(currentDateKey);
+const today = getTodayKey();
+document.getElementById(‘weekdayDisplay’).textContent = WEEKDAYS[d.getDay()];
+document.getElementById(‘dateDisplay’).textContent = `${d.getDate()}. ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+document.getElementById(‘todayBadge’).style.display = currentDateKey === today ? ‘inline-block’ : ‘none’;
+}
+
+// ─── INTERACTIONS ────────────────────────────────────────────
+function addItem(type) {
+const inp = document.getElementById(‘input-’ + type);
+const text = inp.value.trim();
+if (!text) return;
+const day = getDay(currentDateKey);
+day[type].push({ text, done: false });
+inp.value = ‘’;
+renderAll();
+saveAll();
+}
+
+function handleAddKey(e, type) {
+if (e.key === ‘Enter’) { e.preventDefault(); addItem(type); }
+}
+
+function editItem(type, idx, val) {
+const day = getDay(currentDateKey);
+day[type][idx].text = val;
+}
+
+function deleteItem(type, idx) {
+const day = getDay(currentDateKey);
+day[type].splice(idx, 1);
+renderAll();
+saveAll();
+}
+
+function toggleDone(type, idx) {
+const day = getDay(currentDateKey);
+day[type][idx].done = !day[type][idx].done;
+renderAll();
+saveAll();
+}
+
+function markOpenDone(fromKey, text, el) {
+if (!allData[fromKey]) return;
+const item = allData[fromKey].today.find(i => i.text === text);
+if (item) { item.done = true; saveAll(); renderAll(); }
+}
+
+function changeDay(delta) {
+// Save current gratitude before switching
+const day = getDay(currentDateKey);
+day.grat1 = document.getElementById(‘grat1’).value;
+day.grat2 = document.getElementById(‘grat2’).value;
+day.grat3 = document.getElementById(‘grat3’).value;
+saveAll();
+
+const d = dateFromKey(currentDateKey);
+d.setDate(d.getDate() + delta);
+currentDateKey = keyFromDate(d);
+renderAll();
+}
+
+function toggleSection(id) {
+const sec = document.getElementById(‘sec-’ + id);
+sec.classList.toggle(‘collapsed’);
+}
+
+function autoResize(el) {
+el.style.height = ‘auto’;
+el.style.height = el.scrollHeight + ‘px’;
+}
+
+// ─── GRATITUDE AUTO-SAVE ─────────────────────────────────────
+[‘grat1’,‘grat2’,‘grat3’].forEach(id => {
+document.getElementById(id).addEventListener(‘input’, function() {
+getDay(currentDateKey)[id] = this.value;
+});
+});
+
+// ─── TIMER ───────────────────────────────────────────────────
+function toggleTimer() {
 if (timerRunning) {
-timerRef.current = setInterval(() => {
-setTimerSec(s => {
-if (s<=1) { setTimerRunning(false); clearInterval(timerRef.current); return 0; }
-return s-1;
-});
-}, 1000);
-} else clearInterval(timerRef.current);
-return () => clearInterval(timerRef.current);
-}, [timerRunning]);
-
-const day = { …defaultDay(), …allData[currentKey] };
-const isToday = currentKey === getTodayKey();
-const timerMin = Math.floor(timerSec/60);
-const timerS = String(timerSec%60).padStart(2,“0”);
-
-const copyForClaude = () => {
-let text = `TAGESÜBERSICHT · ${WEEKDAYS[dateFromKey(currentKey).getDay()]}, ${dateFromKey(currentKey).getDate()}. ${MONTHS[dateFromKey(currentKey).getMonth()]}\n\n`;
-if (day.today?.length) { text += `✅ TO-DOS (${day.today.filter(i=>i.done).length}/${day.today.length} erledigt)\n`; day.today.forEach(i=>text+=`${i.done?"[x]":"[ ]"} ${i.text}\n`); text+=”\n”; }
-if (day.ideas?.length) { text += `💡 IDEEN\n`; day.ideas.forEach(i=>text+=`→ ${i.text}\n`); text+=”\n”; }
-if (day.topics?.length) { text += `🎯 THEMEN\n`; day.topics.forEach(i=>text+=`• ${i.text}\n`); text+=”\n”; }
-if (day.evening_done) text += `✨ Was gut war: ${day.evening_done}\n`;
-if (day.evening_learn) text += `💡 Gelernt: ${day.evening_learn}\n`;
-if (day.evening_tomorrow) text += `📋 Morgen: ${day.evening_tomorrow}\n`;
-navigator.clipboard?.writeText(text);
-};
-
-const TABS = [
-{id:“morning”, icon:“☀️”, label:“Morgen”},
-{id:“evening”, icon:“🌙”, label:“Abend”},
-{id:“week-end”, icon:“📊”, label:“Woche”},
-{id:“week-start”, icon:“📅”, label:“Start”},
-];
-
-return (
-<div style={{fontFamily:”‘Georgia’, serif”, background:”#f5f0e8”, minHeight:“100vh”}}>
-
-```
-  {/* HEADER */}
-  <div style={{background:"#1c1812", padding:"14px 18px 0", position:"sticky", top:0, zIndex:100}}>
-    <div style={{display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12}}>
-      <div>
-        <div style={{color:"white", fontFamily:"Georgia,serif", fontSize:"1.15rem"}}>
-          Morgen<em style={{color:"#f0a070"}}>routine</em>
-        </div>
-        <div style={{fontSize:"0.62rem", color:"#a09080", letterSpacing:"0.08em"}}>
-          {WEEKDAYS[dateFromKey(currentKey).getDay()]}, {dateFromKey(currentKey).getDate()}. {MONTHS[dateFromKey(currentKey).getMonth()]}
-          {isToday && <span style={{background:"#c4521a", color:"white", borderRadius:8, padding:"1px 7px", marginLeft:6, fontSize:"0.58rem"}}>HEUTE</span>}
-        </div>
-      </div>
-      {view === "morning" && (
-        <button onClick={()=>{setTimerRunning(!timerRunning);if(!timerRunning)setTimerSec(600);}} style={{
-          background:timerRunning?"#2a5c45":"#c4521a", color:"white", border:"none",
-          borderRadius:20, padding:"6px 14px", fontSize:"0.72rem", cursor:"pointer", fontFamily:"inherit"
-        }}>
-          {timerRunning ? `⏱ ${timerMin}:${timerS}` : "⏱ 10 Min"}
-        </button>
-      )}
-    </div>
-
-    {/* TIMER BAR */}
-    {timerRunning && (
-      <div style={{background:"#3a342c", borderRadius:3, height:3, marginBottom:8, overflow:"hidden"}}>
-        <div style={{height:"100%", background:"#c4521a", width:`${((600-timerSec)/600)*100}%`, transition:"width 1s linear"}}/>
-      </div>
-    )}
-
-    {/* TABS */}
-    <div style={{display:"flex", gap:2}}>
-      {TABS.map(t=>(
-        <button key={t.id} onClick={()=>setView(t.id)} style={{
-          flex:1, padding:"8px 4px", border:"none", background:"transparent",
-          color: view===t.id ? "white" : "#6b5e4a",
-          borderBottom: view===t.id ? "2px solid #c4521a" : "2px solid transparent",
-          cursor:"pointer", fontSize:"0.68rem", fontFamily:"inherit",
-          letterSpacing:"0.05em", transition:"all 0.15s"
-        }}>
-          <div style={{fontSize:"0.9rem",marginBottom:1}}>{t.icon}</div>
-          {t.label}
-        </button>
-      ))}
-    </div>
-  </div>
-
-  {/* DATE NAV — only for daily views */}
-  {(view==="morning"||view==="evening") && (
-    <div style={{display:"flex", alignItems:"center", gap:8, padding:"12px 16px 4px", maxWidth:720, margin:"0 auto"}}>
-      <button onClick={()=>{const d=dateFromKey(currentKey);d.setDate(d.getDate()-1);setCurrentKey(keyFromDate(d));}} style={{width:30,height:30,borderRadius:8,border:"1px solid #e2dbd0",background:"white",cursor:"pointer",color:"#6b5e4a",fontSize:"1rem"}}>‹</button>
-      <span style={{flex:1,fontSize:"0.75rem",color:"#6b5e4a",textAlign:"center"}}>Tage blättern</span>
-      <button onClick={()=>{const d=dateFromKey(currentKey);d.setDate(d.getDate()+1);setCurrentKey(keyFromDate(d));}} style={{width:30,height:30,borderRadius:8,border:"1px solid #e2dbd0",background:"white",cursor:"pointer",color:"#6b5e4a",fontSize:"1rem"}}>›</button>
-    </div>
-  )}
-
-  {/* CONTENT */}
-  <div style={{maxWidth:720, margin:"0 auto", padding:"12px 14px 90px"}}>
-    {view==="morning" && <MorningView day={day} updateDay={updateDay} allData={allData} currentKey={currentKey}/>}
-    {view==="evening" && <EveningView day={day} updateDay={updateDay}/>}
-    {view==="week-end" && <WeeklyView allData={allData} currentKey={currentKey} mode="end"/>}
-    {view==="week-start" && <WeeklyView allData={allData} currentKey={currentKey} mode="start"/>}
-  </div>
-
-  {/* BOTTOM BAR */}
-  <div style={{position:"fixed",bottom:0,left:0,right:0,background:"#fffef9",borderTop:"1px solid #e2dbd0",padding:"10px 16px",display:"flex",alignItems:"center",gap:10}}>
-    <span style={{fontSize:"0.65rem",color:"#a09080",flex:1}}>Daten lokal gespeichert</span>
-    <button onClick={copyForClaude} style={{background:"#1c1812",color:"#f5f0e8",border:"none",padding:"7px 14px",borderRadius:8,fontSize:"0.72rem",cursor:"pointer",fontFamily:"inherit"}}>
-      📋 Für Claude kopieren
-    </button>
-  </div>
-
-</div>
-```
-
-);
+clearInterval(timerInterval);
+timerRunning = false;
+timerSeconds = 600;
+document.getElementById(‘timerBtn’).textContent = ‘⏱ 10 Min starten’;
+document.getElementById(‘timerBtn’).classList.remove(‘running’);
+document.getElementById(‘timerBar’).classList.remove(‘visible’);
+document.getElementById(‘progressFill’).style.width = ‘0%’;
+} else {
+timerRunning = true;
+document.getElementById(‘timerBar’).classList.add(‘visible’);
+document.getElementById(‘timerBtn’).textContent = ‘⏹ Stoppen’;
+document.getElementById(‘timerBtn’).classList.add(‘running’);
+timerInterval = setInterval(tickTimer, 1000);
 }
+}
+
+function tickTimer() {
+timerSeconds–;
+if (timerSeconds <= 0) {
+clearInterval(timerInterval);
+timerRunning = false;
+document.getElementById(‘timerBtn’).textContent = ‘✓ Fertig!’;
+document.getElementById(‘timerBtn’).classList.remove(‘running’);
+document.getElementById(‘progressFill’).style.width = ‘100%’;
+document.getElementById(‘timerRemaining’).textContent = ‘0:00’;
+saveAll();
+return;
+}
+const m = Math.floor(timerSeconds / 60);
+const s = String(timerSeconds % 60).padStart(2,‘0’);
+document.getElementById(‘timerRemaining’).textContent = `${m}:${s}`;
+const pct = ((600 - timerSeconds) / 600) * 100;
+document.getElementById(‘progressFill’).style.width = pct + ‘%’;
+}
+
+// ─── CLOCK ───────────────────────────────────────────────────
+function updateClock() {
+const now = new Date();
+document.getElementById(‘clockDisplay’).textContent =
+now.toLocaleTimeString(‘de-DE’, { hour: ‘2-digit’, minute: ‘2-digit’, second: ‘2-digit’ });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── EXPORT / COPY ───────────────────────────────────────────
+function exportText() {
+const day = getDay(currentDateKey);
+const d = dateFromKey(currentDateKey);
+let text = `MORGENROUTINE · ${d.getDate()}. ${MONTHS[d.getMonth()]} ${d.getFullYear()}\n`;
+text += ‘─’.repeat(40) + ‘\n\n’;
+
+text += ‘💡 IDEEN\n’;
+day.ideas.forEach(i => text += `  ${i.done ? '[x]' : '[ ]'} ${i.text}\n`);
+
+text += ‘\n✅ TO-DOS HEUTE\n’;
+day.today.forEach(i => text += `  ${i.done ? '[x]' : '[ ]'} ${i.text}\n`);
+
+text += ‘\n🎯 WICHTIGE THEMEN\n’;
+day.topics.forEach(i => text += `  ${i.done ? '[x]' : '[ ]'} ${i.text}\n`);
+
+text += ‘\n🙏 DANKBARKEIT\n’;
+if (day.grat1) text += `  1. ${day.grat1}\n`;
+if (day.grat2) text += `  2. ${day.grat2}\n`;
+if (day.grat3) text += `  3. ${day.grat3}\n`;
+
+navigator.clipboard.writeText(text).then(() => {
+const btn = document.querySelector(’.export-btn’);
+btn.textContent = ‘✓ Kopiert!’;
+setTimeout(() => btn.textContent = ‘📋 Kopieren’, 2000);
+});
+}
+
+// ─── SAVE (manual) ───────────────────────────────────────────
+function saveData() {
+const day = getDay(currentDateKey);
+day.grat1 = document.getElementById(‘grat1’).value;
+day.grat2 = document.getElementById(‘grat2’).value;
+day.grat3 = document.getElementById(‘grat3’).value;
+saveAll();
+}
+
+// ─── MODAL ───────────────────────────────────────────────────
+function showModal() {
+document.getElementById(‘modalOverlay’).classList.add(‘visible’);
+}
+
+function closeModal(e) {
+if (!e || e.target === document.getElementById(‘modalOverlay’) || !e.target.closest) {
+document.getElementById(‘modalOverlay’).classList.remove(‘visible’);
+}
+}
+
+// ─── UTILS ───────────────────────────────────────────────────
+function escHtml(str) {
+return (str || ‘’).replace(/&/g,’&’).replace(/</g,’<’).replace(/>/g,’>’);
+}
+
+function escAttr(str) {
+return (str || ‘’).replace(/’/g,”\’”);
+}
+
+// ─── INIT ────────────────────────────────────────────────────
+loadAll();
+renderAll();
+
+// Auto-save on page hide
+document.addEventListener(‘visibilitychange’, () => {
+if (document.hidden) saveData();
+});
+</script>
+
+</body>
+</html>
